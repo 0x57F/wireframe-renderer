@@ -19,21 +19,52 @@ typedef struct t_Connection {
 	int p2;
 } Connection;
 
+typedef struct t_Plane {
+	Point origin;
+	Point i_hat;
+	Point j_hat;
+} Plane;
+
 void accept_inputs(int*);
-Point* project_points(Point*, int /* length */, double /* ypos for plane */);
+Point* project_points(Point*, int /* length */, Plane /* ypos for plane */);
 void render_points(Point*, int /* length */, Connection*, int);
 
 
+Point P_multiply(Point p, double scalar) {
+	Point q;
+	q.x = p.x * scalar;
+	q.y = p.y * scalar;
+	q.z = p.z * scalar;
+
+	return q;
+}
+
+Point P_cross(Point p, Point q) {
+	Point r;
+	r.x = p.y*q.z - p.z*q.y;
+	r.y = p.z*q.x - p.x*q.z;
+	r.z = p.x*q.y - p.y*q.x;
+
+	return r;
+}
+
+double P_dot(Point p, Point q) {
+	return p.x * q.x + p.y * q.y + p.z * q.z;
+}
 
 double P_length(Point p) {
 	return sqrt((p.x * p.x) + (p.y * p.y) + (p.z * p.z));
 }
 
-void P_normalise(Point p, Point* ret) {
+Point P_normalise(Point p) {
+	Point r;
+
 	double length = P_length(p);
-	ret->x = p.x / length;
-	ret->y = p.y / length;
-	ret->z = p.z / length;
+	r.x = p.x / length;
+	r.y = p.y / length;
+	r.z = p.z / length;
+
+	return r;
 }
 
 void accept_inputs(int* flags) {
@@ -41,15 +72,16 @@ void accept_inputs(int* flags) {
 }
 
 
-Point* project_points(Point* points, int length, double ypos) {
+Point* project_points(Point* points, int length, Plane plane) {
+	//TODO: Rework this
 	Point* res = malloc(sizeof(Point) * length);
 
 	Point unit;
 	for (int i = 0; i < length; i++) {
-		P_normalise(points[i], &unit);
+		unit = P_normalise(points[i]);
 		Point p;
-		p.z = (unit.z * (ypos - points[i].y) / unit.y) + points[i].z;
-		p.x = (unit.x * (ypos - points[i].y) / unit.y) + points[i].x;
+		p.z = (unit.z * (plane.origin.y - points[i].y) / unit.y) + points[i].z;
+		p.x = (unit.x * (plane.origin.y - points[i].y) / unit.y) + points[i].x;
 		res[i] = p;
 	}
 	return res;
@@ -61,7 +93,7 @@ void render_points(Point* points, int point_length, Connection* connections, int
 		Point p2 = points[connections[i].p2];
 
 		// printf("(%lf, %lf)\n", (p1.x * xsize) + (xsize / 2), p1.z * ysize);
-		gfx_color(0, 0, 0);
+		gfx_color(255, 255, 255);
 		gfx_line((p1.x * xsize) + (xsize / 2), (p1.z * ysize) + (ysize / 2), (p2.x * xsize) + (xsize / 2), (p2.z * ysize) + (ysize / 2));
 	}
 }
@@ -100,30 +132,27 @@ int main() {
 	connections[11] = (Connection) { 6, 7 };
 
 
-	gfx_clear_color(255, 255, 255);
+	gfx_clear_color(0, 0, 0);
 	gfx_clear();
 
-	for (int i = 0; i < point_length; i++) {
-		// // points[i].y += sin(counter);
-		points[i].x -= 1;
-		// points[i].z += M_PI / 2;
-	}
+	Plane render_plane = {
+		(Point) { 0, 1, 0 },
+		(Point) { 1, 0, 0 },
+		(Point) { 0, 0, 1 }
+	};
+
 
 	double counter;
 	while (1) {
 		accept_inputs(0);
 
-		Point* projected = project_points(points, point_length, 1.0f);
+		Point* projected = project_points(points, point_length, render_plane);
 		render_points(projected, point_length, connections, connection_length);
 
 		gfx_flush();
 		usleep((1.0 / 60.0) * 1000000);
 
-		for (int i = 0; i < point_length; i++) {
-			// points[i].y += sin(counter / 100) / 100;
-			points[i].x += sin(counter / 100) / 100;
-			points[i].z -= cos(counter / 100) / 100;
-		}
+		printf("%lf\n", render_plane.origin.y);
 
 		gfx_clear();
 		// printf("%lf\n", sin(counter / 10));
